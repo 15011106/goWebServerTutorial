@@ -23,7 +23,7 @@ func (hand *handlerA) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		res.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(res, err)
+		fmt.Fprint(res, "Bad request: ", err)
 		return
 	}
 	user.CreatedAt = time.Now()

@@ -33,7 +33,7 @@ func (hand *handlerA) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	data, _ := json.Marshal(user)
 	res.Header().Add("content-type", "application/json")
-	res.WriteHeader(http.StatusOK)
+	res.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(res, string(data))
 
 }

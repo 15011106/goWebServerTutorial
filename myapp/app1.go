@@ -3,7 +3,9 @@ package myapp
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -16,7 +18,9 @@ type User struct {
 type handlerA struct{}
 
 func handlerB(res http.ResponseWriter, req *http.Request) {
+
 	fmt.Fprintf(res, "Welcome handleB")
+
 }
 
 func (hand *handlerA) ServeHTTP(res http.ResponseWriter, req *http.Request) {
@@ -49,6 +53,36 @@ func handler(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(res, "Hello %s!", name)
 }
 
+func uploadHandler(res http.ResponseWriter, req *http.Request) {
+	uploadFile, header, err := req.FormFile("uploadFile")
+
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(res, err)
+		return
+	}
+
+	defer uploadFile.Close()
+
+	dirname := "./upload"
+	os.Mkdir(dirname, 0777)
+
+	filepath := fmt.Sprintf("%s/%s", dirname, header.Filename)
+	file, err := os.Create(filepath)
+
+	defer file.Close()
+
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(res, err)
+		return
+	}
+
+	io.Copy(file, uploadFile)
+	res.WriteHeader(http.StatusOK)
+	fmt.Fprintf(res, filepath)
+}
+
 func NewHttpHander() http.Handler {
 
 	mux := http.NewServeMux()
@@ -58,5 +92,9 @@ func NewHttpHander() http.Handler {
 	mux.Handle("/handleA", &handlerA{})
 	//using handlefunc
 	mux.HandleFunc("/handleB", handlerB)
+
+	mux.Handle("/public/", http.FileServer(http.Dir(".")))
+	mux.HandleFunc("/upload", uploadHandler)
+
 	return mux
 }

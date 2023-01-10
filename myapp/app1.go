@@ -6,10 +6,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 type User struct {
+	Id        int
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
 	Email     string    `json:"email`
@@ -17,9 +21,31 @@ type User struct {
 }
 type handlerA struct{}
 
+var userMap map[int]*User
+var lastID int
+
 func handlerB(res http.ResponseWriter, req *http.Request) {
 
-	fmt.Fprintf(res, "Welcome handleB")
+	vars := mux.Vars(req)
+
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(res, err)
+		return
+	}
+	user, ok := userMap[id]
+
+	if !ok {
+		res.WriteHeader(http.StatusOK)
+		fmt.Fprint(res, "No user ID: ", id)
+		return
+	}
+
+	res.Header().Add("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
+	data, _ := json.Marshal(user)
+	fmt.Fprint(res, string(data))
 
 }
 
@@ -83,15 +109,42 @@ func uploadHandler(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(res, filepath)
 }
 
+func createHandlerB(res http.ResponseWriter, req *http.Request) {
+	user := new(User)
+	err := json.NewDecoder(req.Body).Decode(user)
+
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(res, err)
+		return
+	}
+
+	//Created User
+	lastID++
+	user.Id = lastID
+	user.CreatedAt = time.Now()
+	userMap[user.Id] = user
+
+	res.WriteHeader(http.StatusCreated)
+	data, _ := json.Marshal(user)
+	fmt.Fprint(res, string(data))
+
+}
+
+// Make a new handler
 func NewHttpHander() http.Handler {
 
-	mux := http.NewServeMux()
+	userMap = make(map[int]*User)
+	lastID = 0
+
+	mux := mux.NewRouter()
 	//using handle with handlerFunc
 	mux.HandleFunc("/", handler)
 	//using handle with struct
 	mux.Handle("/handleA", &handlerA{})
 	//using handlefunc
-	mux.HandleFunc("/handleB", handlerB)
+	mux.HandleFunc("/handleB/{id:[0-9]+}", handlerB)
+	mux.HandleFunc("/handleB", createHandlerB).Methods("POST")
 
 	mux.Handle("/public/", http.FileServer(http.Dir(".")))
 	mux.HandleFunc("/upload", uploadHandler)
